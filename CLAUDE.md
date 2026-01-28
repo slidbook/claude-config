@@ -33,3 +33,9 @@ See [.claude/rules/testing.md](.claude/rules/testing.md) for testing conventions
 - `tests/` - Bats test suite
 
 For detailed workflows, see [.claude/rules/workflows.md](.claude/rules/workflows.md).
+
+## Verification
+
+After making changes:
+- `bats tests/` - Run all tests
+- `./sync.sh validate` - Validate all skills
