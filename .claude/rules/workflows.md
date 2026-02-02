@@ -3,10 +3,12 @@
 ## Setting up on a new machine
 
 ```bash
-git clone git@github.com:brianlovin/claude-config.git ~/Developer/claude-config
-cd ~/Developer/claude-config
+git clone git@github.com:<username>/claude-config.git <local-path>
+cd <local-path>
 ./install.sh
 ```
+
+Replace `<username>` with your GitHub username and `<local-path>` with where you want to clone (e.g., `~/Developer/claude-config`).
 
 Creates symlinks from `~/.claude/` to this repo. Local-only items are preserved.
 
@@ -34,7 +36,7 @@ Use `--force` to automatically use repo versions (still creates backups).
 ./sync.sh
 ```
 
-Shows status grouped by type (Skills, Agents, Rules):
+Shows status grouped by type (Config Files, Skills, Agents, Rules):
 
 - `✓` synced (symlinked to this repo)
 - `○` local only (not in repo)
@@ -47,6 +49,7 @@ Shows status grouped by type (Skills, Agents, Rules):
 ./sync.sh add skill <name>   # Add a skill directory
 ./sync.sh add agent <name>   # Add an agent file (without .md extension)
 ./sync.sh add rule <name>    # Add a rule file (without .md extension)
+./sync.sh add claudemd       # Add CLAUDE.md (global instructions)
 ./sync.sh push
 ```
 
@@ -60,6 +63,7 @@ Skills are validated before adding - must have SKILL.md with `name` and `descrip
 ./sync.sh remove skill <name>
 ./sync.sh remove agent <name>
 ./sync.sh remove rule <name>
+./sync.sh remove claudemd
 ./sync.sh push
 ```
 
@@ -112,6 +116,7 @@ Use this for work-specific or experimental items.
 
 ```
 ~/.claude/
+├── CLAUDE.md        # Global instructions file
 ├── skills/          # Skill directories (each has SKILL.md)
 ├── agents/          # Subagent markdown files
 ├── rules/           # Rule markdown files

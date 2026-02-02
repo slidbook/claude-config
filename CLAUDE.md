@@ -9,7 +9,9 @@ Personal Claude Code settings, skills, agents, and rules, synced across machines
 ./install.sh --dry-run    # Preview what would be done
 ./sync.sh                 # Show sync status
 ./sync.sh add <type> <name>     # Add a local item to repo
+./sync.sh add claudemd          # Add CLAUDE.md to repo
 ./sync.sh remove <type> <name>  # Remove item from repo (keeps local)
+./sync.sh remove claudemd       # Remove CLAUDE.md from repo
 ./sync.sh pull            # Pull latest and reinstall symlinks
 ./sync.sh push            # Commit and push changes
 ./sync.sh undo            # Restore from last backup
@@ -18,7 +20,7 @@ Personal Claude Code settings, skills, agents, and rules, synced across machines
 bats tests/               # Run tests
 ```
 
-Types: `skill`, `agent`, `rule`
+Types: `skill`, `agent`, `rule`, `claudemd`
 
 ## Testing
 

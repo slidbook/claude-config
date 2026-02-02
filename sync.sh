@@ -162,9 +162,50 @@ show_file_status() {
     done
 }
 
+# Show status for a single config file (settings.json, statusline.sh, CLAUDE.md)
+show_single_file_status() {
+    local filename="$1"
+    local local_path="$HOME/.claude/$filename"
+    local repo_path="$CONFIG_DIR/$filename"
+
+    if [ ! -e "$local_path" ] && [ ! -e "$repo_path" ]; then
+        return
+    fi
+
+    if [ -L "$local_path" ]; then
+        local target=$(readlink "$local_path")
+        if [[ "$target" == "$CONFIG_DIR"* ]]; then
+            echo -e "  ${GREEN}✓${RESET} $filename (synced)"
+        else
+            echo -e "  ${BLUE}→${RESET} $filename (symlink to elsewhere)"
+        fi
+    elif [ -e "$local_path" ]; then
+        if [ -e "$repo_path" ]; then
+            echo -e "  ${YELLOW}⚠${RESET} $filename (exists in both - local copy)"
+        else
+            echo -e "  ${RESET}○${RESET} $filename (local only)"
+        fi
+    elif [ -e "$repo_path" ]; then
+        echo -e "  ${RESET}○${RESET} $filename (in repo, not installed)"
+    fi
+}
+
 show_status() {
     echo -e "${BOLD}Claude Config Sync Status${RESET}"
     echo "========================="
+    echo ""
+
+    echo -e "${BOLD}Config Files:${RESET}"
+    local has_config_files=false
+    for file in CLAUDE.md settings.json statusline.sh; do
+        if [ -e "$HOME/.claude/$file" ] || [ -e "$CONFIG_DIR/$file" ]; then
+            show_single_file_status "$file"
+            has_config_files=true
+        fi
+    done
+    if ! $has_config_files; then
+        echo "  (none)"
+    fi
     echo ""
 
     echo -e "${BOLD}Skills:${RESET}"
@@ -195,7 +236,9 @@ show_status() {
     echo ""
     echo "Usage:"
     echo "  ./sync.sh add <type> <name>     Add a local item to repo"
+    echo "  ./sync.sh add claudemd          Add CLAUDE.md to repo"
     echo "  ./sync.sh remove <type> <name>  Remove an item from repo (keeps local)"
+    echo "  ./sync.sh remove claudemd       Remove CLAUDE.md from repo"
     echo "  ./sync.sh pull                  Pull latest and reinstall"
     echo "  ./sync.sh push                  Commit and push changes"
     echo "  ./sync.sh undo                  Restore from last backup"
@@ -205,7 +248,7 @@ show_status() {
     echo "Options:"
     echo "  -n, --dry-run                   Show what would be done"
     echo ""
-    echo "Types: skill, agent, rule"
+    echo "Types: skill, agent, rule, claudemd"
 }
 
 add_skill() {
@@ -370,6 +413,80 @@ remove_file() {
     rm "$dest"
 
     echo -e "${GREEN}✓${RESET} $(capitalize "${type%s}") '$name' removed from repo (kept as local)"
+    echo -e "${BLUE}Backup saved:${RESET} $backup_path"
+    echo "  Run: ./sync.sh push"
+}
+
+add_claudemd() {
+    local src="$HOME/.claude/CLAUDE.md"
+    local dest="$CONFIG_DIR/CLAUDE.md"
+
+    if [ ! -f "$src" ]; then
+        echo "Error: CLAUDE.md not found at $src"
+        exit 1
+    fi
+
+    if [ -L "$src" ] && [[ "$(readlink "$src")" == "$CONFIG_DIR"* ]]; then
+        echo "Error: CLAUDE.md is already synced"
+        exit 1
+    fi
+
+    if $DRY_RUN; then
+        echo -e "${BLUE}[dry-run]${RESET} Would copy $src to $dest"
+        echo -e "${BLUE}[dry-run]${RESET} Would create symlink $src -> $dest"
+        return
+    fi
+
+    echo "Adding CLAUDE.md to repo..."
+
+    # Create backup before modifying
+    local backup_path=$(create_backup)
+    backup_item "$src" "$backup_path"
+    write_manifest "$backup_path" "add-claudemd" "CLAUDE.md"
+
+    cp "$src" "$dest"
+    rm "$src"
+    ln -s "$dest" "$src"
+
+    echo -e "${GREEN}✓${RESET} CLAUDE.md added and symlinked"
+    echo -e "${BLUE}Backup saved:${RESET} $backup_path"
+    echo "  Run: ./sync.sh push"
+}
+
+remove_claudemd() {
+    local src="$HOME/.claude/CLAUDE.md"
+    local dest="$CONFIG_DIR/CLAUDE.md"
+
+    if [ ! -f "$dest" ]; then
+        echo "Error: CLAUDE.md not in repo"
+        exit 1
+    fi
+
+    if $DRY_RUN; then
+        echo -e "${BLUE}[dry-run]${RESET} Would remove symlink at $src"
+        echo -e "${BLUE}[dry-run]${RESET} Would copy $dest to $src"
+        echo -e "${BLUE}[dry-run]${RESET} Would delete $dest from repo"
+        return
+    fi
+
+    echo "Removing CLAUDE.md from repo..."
+
+    # Create backup
+    local backup_path=$(create_backup)
+    backup_item "$dest" "$backup_path"
+    if [ -L "$src" ]; then
+        backup_item "$src" "$backup_path"
+    fi
+    write_manifest "$backup_path" "remove-claudemd" "CLAUDE.md"
+
+    if [ -L "$src" ] && [[ "$(readlink "$src")" == "$CONFIG_DIR"* ]]; then
+        rm "$src"
+        cp "$dest" "$src"
+    fi
+
+    rm "$dest"
+
+    echo -e "${GREEN}✓${RESET} CLAUDE.md removed from repo (kept as local)"
     echo -e "${BLUE}Backup saved:${RESET} $backup_path"
     echo "  Run: ./sync.sh push"
 }
@@ -581,24 +698,32 @@ case "${1:-}" in
     add)
         type="${2:-}"
         name="${3:-}"
-        [ -z "$type" ] || [ -z "$name" ] && { echo "Usage: ./sync.sh add <type> <name>"; echo "Types: skill, agent, rule"; exit 1; }
-        case "$type" in
-            skill)  add_skill "$name" ;;
-            agent)  add_file "agents" "$name" ;;
-            rule)   add_file "rules" "$name" ;;
-            *)      echo "Unknown type: $type (use: skill, agent, rule)"; exit 1 ;;
-        esac
+        if [ "$type" = "claudemd" ]; then
+            add_claudemd
+        else
+            [ -z "$type" ] || [ -z "$name" ] && { echo "Usage: ./sync.sh add <type> <name>"; echo "Types: skill, agent, rule, claudemd"; exit 1; }
+            case "$type" in
+                skill)  add_skill "$name" ;;
+                agent)  add_file "agents" "$name" ;;
+                rule)   add_file "rules" "$name" ;;
+                *)      echo "Unknown type: $type (use: skill, agent, rule, claudemd)"; exit 1 ;;
+            esac
+        fi
         ;;
     remove)
         type="${2:-}"
         name="${3:-}"
-        [ -z "$type" ] || [ -z "$name" ] && { echo "Usage: ./sync.sh remove <type> <name>"; echo "Types: skill, agent, rule"; exit 1; }
-        case "$type" in
-            skill)  remove_skill "$name" ;;
-            agent)  remove_file "agents" "$name" ;;
-            rule)   remove_file "rules" "$name" ;;
-            *)      echo "Unknown type: $type (use: skill, agent, rule)"; exit 1 ;;
-        esac
+        if [ "$type" = "claudemd" ]; then
+            remove_claudemd
+        else
+            [ -z "$type" ] || [ -z "$name" ] && { echo "Usage: ./sync.sh remove <type> <name>"; echo "Types: skill, agent, rule, claudemd"; exit 1; }
+            case "$type" in
+                skill)  remove_skill "$name" ;;
+                agent)  remove_file "agents" "$name" ;;
+                rule)   remove_file "rules" "$name" ;;
+                *)      echo "Unknown type: $type (use: skill, agent, rule, claudemd)"; exit 1 ;;
+            esac
+        fi
         ;;
     pull)
         pull_changes

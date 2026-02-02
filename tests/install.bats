@@ -207,3 +207,41 @@ teardown() {
     [[ -d "$FAKE_HOME/.claude/skills/local-skill" ]]
     [[ -f "$FAKE_HOME/.claude/skills/local-skill/SKILL.md" ]]
 }
+
+# =============================================================================
+# CLAUDE.md Tests
+# =============================================================================
+
+@test "install.sh symlinks CLAUDE.md" {
+    create_fake_claudemd
+    run_install
+    assert_symlink "$FAKE_HOME/.claude/CLAUDE.md" "$FAKE_REPO/CLAUDE.md"
+}
+
+@test "install.sh --dry-run doesn't create CLAUDE.md symlink" {
+    create_fake_claudemd
+    run_install --dry-run
+    [[ ! -L "$FAKE_HOME/.claude/CLAUDE.md" ]]
+}
+
+@test "install.sh detects CLAUDE.md conflict" {
+    create_fake_claudemd
+    # Create a different local CLAUDE.md
+    mkdir -p "$FAKE_HOME/.claude"
+    echo "# Local CLAUDE.md" > "$FAKE_HOME/.claude/CLAUDE.md"
+
+    run run_install --dry-run
+    [[ "$output" == *"Would backup and replace"* ]]
+    [[ "$output" == *"CLAUDE.md"* ]]
+}
+
+@test "install.sh --force overwrites CLAUDE.md with backup" {
+    create_fake_claudemd
+    # Create a conflicting local file
+    mkdir -p "$FAKE_HOME/.claude"
+    echo "# Local CLAUDE.md" > "$FAKE_HOME/.claude/CLAUDE.md"
+
+    run_install --force
+    assert_symlink "$FAKE_HOME/.claude/CLAUDE.md" "$FAKE_REPO/CLAUDE.md"
+    assert_backup_exists
+}

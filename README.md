@@ -5,10 +5,12 @@ My [Claude Code](https://docs.anthropic.com/en/docs/claude-code) configuration -
 ## Quick start
 
 ```bash
-git clone https://github.com/brianlovin/claude-config.git
-cd claude-config
+git clone https://github.com/<username>/claude-config.git <local-path>
+cd <local-path>
 ./install.sh
 ```
+
+Replace `<username>` with your GitHub username and `<local-path>` with where you want to clone.
 
 ## What's included
 
@@ -112,4 +114,3 @@ claude-config/
 ## See also
 
 - [Claude Code docs](https://docs.anthropic.com/en/docs/claude-code)
-- [My dotfiles](https://github.com/brianlovin/dotfiles) - Shell, git, SSH config

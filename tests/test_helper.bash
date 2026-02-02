@@ -131,6 +131,19 @@ EOF
     chmod +x "$location/statusline.sh"
 }
 
+# Create CLAUDE.md
+create_fake_claudemd() {
+    local location="${1:-$FAKE_REPO}"
+    cat > "$location/CLAUDE.md" << 'EOF'
+# Global CLAUDE.md
+
+## Preferences
+
+- Test preference one
+- Test preference two
+EOF
+}
+
 # Assert that a symlink exists and points to expected target
 assert_symlink() {
     local path="$1"

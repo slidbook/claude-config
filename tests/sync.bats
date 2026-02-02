@@ -249,3 +249,125 @@ teardown() {
     run run_sync add --dry-run skill my-skill
     [[ "$output" == *"[dry-run]"* ]]
 }
+
+# =============================================================================
+# Config Files Section Tests
+# =============================================================================
+
+@test "sync.sh shows Config Files section" {
+    run run_sync
+    [[ "$output" == *"Config Files:"* ]]
+}
+
+@test "sync.sh shows synced CLAUDE.md in Config Files" {
+    create_fake_claudemd
+    run_install
+    run run_sync
+    [[ "$output" == *"Config Files:"* ]]
+    [[ "$output" == *"CLAUDE.md"* ]]
+    [[ "$output" == *"synced"* ]]
+}
+
+@test "sync.sh shows local-only CLAUDE.md" {
+    # Create a local-only CLAUDE.md (not in repo)
+    mkdir -p "$FAKE_HOME/.claude"
+    echo "# Local CLAUDE.md" > "$FAKE_HOME/.claude/CLAUDE.md"
+
+    run run_sync
+    [[ "$output" == *"CLAUDE.md"* ]]
+    [[ "$output" == *"local only"* ]]
+}
+
+# =============================================================================
+# Add CLAUDE.md Tests
+# =============================================================================
+
+@test "sync.sh add claudemd copies to repo and creates symlink" {
+    # Create a local CLAUDE.md
+    create_fake_claudemd "$FAKE_HOME/.claude"
+
+    run_sync add claudemd
+
+    # Should now be in repo
+    [[ -f "$FAKE_REPO/CLAUDE.md" ]]
+
+    # Local should be symlink to repo
+    assert_symlink "$FAKE_HOME/.claude/CLAUDE.md" "$FAKE_REPO/CLAUDE.md"
+}
+
+@test "sync.sh add claudemd creates backup" {
+    create_fake_claudemd "$FAKE_HOME/.claude"
+    run_sync add claudemd
+    assert_backup_exists
+    assert_manifest_operation "add-claudemd"
+}
+
+@test "sync.sh add claudemd --dry-run doesn't modify" {
+    create_fake_claudemd "$FAKE_HOME/.claude"
+    run run_sync --dry-run add claudemd
+
+    # Repo should not have CLAUDE.md
+    [[ ! -f "$FAKE_REPO/CLAUDE.md" ]]
+    # Local should still be a regular file
+    assert_regular_file "$FAKE_HOME/.claude/CLAUDE.md"
+}
+
+@test "sync.sh add claudemd fails if already synced" {
+    create_fake_claudemd
+    run_install
+
+    run run_sync add claudemd
+    [[ "$status" -ne 0 ]]
+    [[ "$output" == *"already synced"* ]]
+}
+
+@test "sync.sh add claudemd fails if not found" {
+    run run_sync add claudemd
+    [[ "$status" -ne 0 ]]
+    [[ "$output" == *"not found"* ]]
+}
+
+# =============================================================================
+# Remove CLAUDE.md Tests
+# =============================================================================
+
+@test "sync.sh remove claudemd removes from repo but keeps local" {
+    create_fake_claudemd
+    run_install
+
+    # Verify it's synced
+    assert_symlink "$FAKE_HOME/.claude/CLAUDE.md" "$FAKE_REPO/CLAUDE.md"
+
+    run_sync remove claudemd
+
+    # Should be removed from repo
+    [[ ! -f "$FAKE_REPO/CLAUDE.md" ]]
+
+    # Should exist locally as regular file
+    [[ -f "$FAKE_HOME/.claude/CLAUDE.md" ]]
+    [[ ! -L "$FAKE_HOME/.claude/CLAUDE.md" ]]
+}
+
+@test "sync.sh remove claudemd creates backup" {
+    create_fake_claudemd
+    run_install
+    run_sync remove claudemd
+    assert_backup_exists
+    assert_manifest_operation "remove-claudemd"
+}
+
+@test "sync.sh remove claudemd --dry-run doesn't modify" {
+    create_fake_claudemd
+    run_install
+
+    run run_sync --dry-run remove claudemd
+
+    # Repo should still have CLAUDE.md
+    [[ -f "$FAKE_REPO/CLAUDE.md" ]]
+}
+
+@test "sync.sh remove claudemd fails if not in repo" {
+    run run_sync remove claudemd
+    [[ "$status" -ne 0 ]]
+    [[ "$output" == *"not in repo"* ]]
+}
